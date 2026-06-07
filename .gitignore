@@ -1,3 +1,13 @@
+# Virtual environment
+.venv/
+
+# Downloaded dataset (too large for git — re-downloaded automatically)
+data/
+
+# Model checkpoints and output plots
+checkpoints/
+results/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
