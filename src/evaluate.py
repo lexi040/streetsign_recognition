@@ -1,9 +1,3 @@
-"""
-Evaluation utilities:
-  - compute_metrics : accuracy, per-class precision/recall/F1
-  - confusion_matrix : saves a heatmap PNG
-  - run_evaluation   : full evaluation pass on the test loader
-"""
 
 import os
 import numpy as np
@@ -22,7 +16,6 @@ from tqdm import tqdm
 from src.dataset import CLASS_NAMES, NUM_CLASSES
 
 
-# ── Core evaluation loop ──────────────────────────────────────────────────────
 
 @torch.no_grad()
 def collect_predictions(
@@ -30,10 +23,7 @@ def collect_predictions(
     loader: DataLoader,
     device: torch.device,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Run the model over `loader` and collect:
-      all_labels, all_preds, all_confs
-    """
+    #ruleaza modelul pe test_loader si colectam etichete si predictii
     model.eval()
     labels_list, preds_list, confs_list = [], [], []
 
@@ -54,10 +44,10 @@ def collect_predictions(
     )
 
 
-# ── Metric report ─────────────────────────────────────────────────────────────
+#calc metrice
 
 def compute_metrics(labels: np.ndarray, preds: np.ndarray) -> dict:
-    """Return overall accuracy + sklearn classification report."""
+    
     accuracy = (labels == preds).mean()
     report = classification_report(
         labels, preds,
@@ -76,8 +66,9 @@ def compute_metrics(labels: np.ndarray, preds: np.ndarray) -> dict:
     return {"accuracy": accuracy, "report_str": report, "report_dict": report_dict}
 
 
-# ── Confusion matrix plot ─────────────────────────────────────────────────────
 
+
+#matricea de confuzie
 def plot_confusion_matrix(
     labels: np.ndarray,
     preds: np.ndarray,
@@ -114,11 +105,11 @@ def plot_confusion_matrix(
     os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
     plt.savefig(save_path, dpi=150)
     plt.close()
-    print(f"Confusion matrix saved → {save_path}")
+    print(f"Confusion matrix saved {save_path}")
 
 
-# ── Training curve plot ───────────────────────────────────────────────────────
 
+#curbele de antrenament
 def plot_training_curves(history: dict, save_path: str) -> None:
     epochs = range(1, len(history["train_loss"]) + 1)
 
@@ -140,18 +131,17 @@ def plot_training_curves(history: dict, save_path: str) -> None:
     os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
     plt.savefig(save_path, dpi=150)
     plt.close()
-    print(f"Training curves saved → {save_path}")
+    print(f"Training curves saved {save_path}")
 
 
-# ── Full evaluation entry point ───────────────────────────────────────────────
-
+#functie principala care ruleaza tot
 def run_evaluation(
     model: nn.Module,
     test_loader: DataLoader,
     device: torch.device,
     results_dir: str = "./results",
 ) -> dict:
-    """Evaluate model on test_loader; save confusion matrix; print report."""
+    
     os.makedirs(results_dir, exist_ok=True)
 
     labels, preds, confs = collect_predictions(model, test_loader, device)

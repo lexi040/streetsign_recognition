@@ -1,10 +1,10 @@
 """
-GTSRB dataset filtered to the 5 traffic sign classes required by the project:
-  - Speed limit 30 km/h  (GTSRB class 1)
-  - Speed limit 50 km/h  (GTSRB class 2)
-  - Speed limit 80 km/h  (GTSRB class 5)
-  - Yield                (GTSRB class 13)
-  - Stop                 (GTSRB class 14)
+filtram datasetul sa contina doar clsele relevante pt proiect
+  - speed limit 30 km/h  (GTSRB class 1)
+  - speed limit 50 km/h  (GTSRB class 2)
+  - speed limit 80 km/h  (GTSRB class 5)
+  - yield                (GTSRB class 13)
+  - stop                 (GTSRB class 14)
 """
 
 import torch
@@ -13,9 +13,7 @@ from torchvision import datasets, transforms
 from PIL import Image
 
 
-# ── Class definitions ────────────────────────────────────────────────────────
-
-# GTSRB original class ids we care about → local label (0-4)
+#remapam claseel
 GTSRB_TO_LOCAL = {1: 0, 2: 1, 5: 2, 13: 3, 14: 4}
 
 CLASS_NAMES = [
@@ -28,15 +26,15 @@ CLASS_NAMES = [
 
 NUM_CLASSES = len(CLASS_NAMES)
 
-# ── Image statistics (ImageNet-style, good default for GTSRB) ────────────────
 MEAN = [0.3337, 0.3064, 0.3171]
 STD  = [0.2672, 0.2564, 0.2629]
 
-IMAGE_SIZE = 48   # resize all images to 48x48
+IMAGE_SIZE = 48 
 
 
-# ── Transforms ───────────────────────────────────────────────────────────────
+#transformari
 
+#augmentare de date pentru antrenament
 def get_train_transform() -> transforms.Compose:
     return transforms.Compose([
         transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
@@ -48,6 +46,7 @@ def get_train_transform() -> transforms.Compose:
     ])
 
 
+#transofrmari pentru validare/test
 def get_val_transform() -> transforms.Compose:
     return transforms.Compose([
         transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
@@ -56,15 +55,14 @@ def get_val_transform() -> transforms.Compose:
     ])
 
 
-# ── Filtered dataset wrapper ─────────────────────────────────────────────────
 
 class FilteredGTSRB(Dataset):
-    """Wraps torchvision.datasets.GTSRB and keeps only the 5 target classes."""
+    #luam datasetul GTSRB si filtram clasele relevante si remapam etichetele
 
     def __init__(self, root: str, split: str = "train", transform=None, download: bool = True):
         base = datasets.GTSRB(root=root, split=split, download=download)
 
-        # Collect indices that belong to our 5 classes
+        #colectare indice si etichete pt clase
         self.samples = []
         for img_path, gtsrb_label in base._samples:
             if gtsrb_label in GTSRB_TO_LOCAL:
@@ -83,10 +81,9 @@ class FilteredGTSRB(Dataset):
         return img, label
 
 
-# ── Convenience loader factory ────────────────────────────────────────────────
 
 def get_loaders(data_root: str, batch_size: int = 64, num_workers: int = 4):
-    """Return (train_loader, val_loader, test_loader) and class weights."""
+    #returneaza dataloader-ele pentru train, val, test si class weights pentru loss
 
     train_ds = FilteredGTSRB(data_root, split="train", transform=get_train_transform())
     test_ds  = FilteredGTSRB(data_root, split="test",  transform=get_val_transform())
@@ -97,7 +94,7 @@ def get_loaders(data_root: str, batch_size: int = 64, num_workers: int = 4):
     train_subset, val_subset = torch.utils.data.random_split(
         train_ds, [n_train, n_val], generator=torch.Generator().manual_seed(42)
     )
-    # Validation subset uses val transforms (no augmentation)
+    
     val_subset.dataset = FilteredGTSRB(data_root, split="train", transform=get_val_transform())
 
     train_loader = DataLoader(train_subset, batch_size=batch_size, shuffle=True,
@@ -107,7 +104,7 @@ def get_loaders(data_root: str, batch_size: int = 64, num_workers: int = 4):
     test_loader  = DataLoader(test_ds,      batch_size=batch_size, shuffle=False,
                               num_workers=num_workers, pin_memory=True)
 
-    # Compute class weights to handle imbalance
+    #calc class weights
     labels = [lbl for _, lbl in train_subset]
     counts = torch.zeros(NUM_CLASSES)
     for lbl in labels:

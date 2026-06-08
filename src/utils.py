@@ -1,9 +1,3 @@
-"""
-Visualization helpers:
-  - denormalize          : undo ImageNet-style normalization for display
-  - show_sample_grid     : plot a grid of images with true/predicted labels
-  - show_demo_predictions: run the model on a batch and render results
-"""
 
 import os
 import numpy as np
@@ -17,10 +11,9 @@ import matplotlib.pyplot as plt
 from src.dataset import CLASS_NAMES, MEAN, STD
 
 
-# ── Tensor ↔ image helpers ────────────────────────────────────────────────────
+#functie de denormalizare a imaginilor pentru vizualizare
 
 def denormalize(tensor: torch.Tensor) -> np.ndarray:
-    """Convert a normalized CHW tensor to an HWC uint8 numpy array."""
     mean = np.array(MEAN, dtype=np.float32).reshape(3, 1, 1)
     std  = np.array(STD,  dtype=np.float32).reshape(3, 1, 1)
     img = tensor.cpu().numpy() * std + mean          # CHW float
@@ -29,7 +22,7 @@ def denormalize(tensor: torch.Tensor) -> np.ndarray:
     return img
 
 
-# ── Grid visualization ────────────────────────────────────────────────────────
+#vizualizare predictii pe un grid de imagini
 
 def show_sample_grid(
     images: torch.Tensor,
@@ -40,10 +33,7 @@ def show_sample_grid(
     n_cols: int = 5,
     title: str = "Sample Predictions",
 ) -> None:
-    """
-    Plot a grid of up to n_cols×4 images.
-    Title of each cell is green (correct) or red (wrong).
-    """
+
     n = min(len(images), n_cols * 4)
     n_rows = (n + n_cols - 1) // n_cols
 
@@ -79,14 +69,14 @@ def show_sample_grid(
     if save_path:
         os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
         plt.savefig(save_path, dpi=150, bbox_inches="tight")
-        print(f"Sample grid saved → {save_path}")
+        print(f"Sample grid saved {save_path}")
     else:
         plt.show()
     plt.close()
 
 
-# ── Demo: run model on one batch ──────────────────────────────────────────────
 
+#demo vizualizare predictii
 @torch.no_grad()
 def show_demo_predictions(
     model: nn.Module,
@@ -95,10 +85,7 @@ def show_demo_predictions(
     save_path: str = "./results/demo_predictions.png",
     n_images: int = 20,
 ) -> None:
-    """
-    Take the first batch from `loader`, run the model, and save a prediction grid.
-    Shows green titles for correct predictions, red for wrong ones.
-    """
+
     model.eval()
     images, labels = next(iter(loader))
     images_dev = images[:n_images].to(device)
@@ -114,5 +101,5 @@ def show_demo_predictions(
         pred_labels=preds.cpu(),
         confs=confs.cpu(),
         save_path=save_path,
-        title="Test-set Predictions (green = correct, red = wrong)",
+        title="Test-set Predictions",
     )

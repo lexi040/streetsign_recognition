@@ -5,7 +5,6 @@
 data/
 
 # Model checkpoints and output plots
-checkpoints/
 results/
 
 # Byte-compiled / optimized / DLL files

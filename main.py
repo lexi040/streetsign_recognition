@@ -1,21 +1,21 @@
 """
-Traffic Sign Recognition — main entry point.
+Traffic Sign Recognition main entry point
 
-Usage:
-  python main.py train                # download data, train, save checkpoint
-  python main.py evaluate             # load best checkpoint, evaluate on test set
-  python main.py demo                 # save a prediction grid from the test set
-  python main.py all                  # train → evaluate → demo in one go
+Utilizare:
+  python main.py train                # download data, antreneaza modelul, salveaza checkpoint
+  python main.py evaluate             # incarca cel mai bun checkpoint, ruleaza pe test set, calculeaza metrici, salveaza rapoarte si ploturi
+  python main.py demo                 # salveaza grid de predictii pe imagini din test
+  python main.py all                  # train -> evaluate -> demo
 
 Options (all commands):
-  --data-root   DIR   where to store the GTSRB dataset  (default: ./data)
-  --ckpt-dir    DIR   directory for model checkpoints   (default: ./checkpoints)
-  --results-dir DIR   directory for output plots        (default: ./results)
-  --epochs      N     number of training epochs         (default: 30)
-  --batch-size  N     batch size                        (default: 64)
-  --lr          F     initial learning rate             (default: 1e-3)
+  --data-root   DIR   unde se salveaza datele downloadate  (default: ./data)
+  --ckpt-dir    DIR   director pentru checkpoints   (default: ./checkpoints)
+  --results-dir DIR   director pentru plots       (default: ./results)
+  --epochs      N     numar de epoci         (default: 30)
+  --batch-size  N     marimea batch                       (default: 64)
+  --lr          F     learning rate initial             (default: 1e-3)
   --workers     N     DataLoader workers                (default: 4)
-  --device      STR   cpu | cuda | auto                 (default: auto)
+  --device      STR   cpu / cuda / auto                 (default: auto)
 """
 
 import argparse
@@ -23,7 +23,7 @@ import os
 import sys
 import torch
 
-# ── Argument parser ───────────────────────────────────────────────────────────
+#parser de argumente pt linia de comanda
 
 def make_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -43,8 +43,9 @@ def make_parser() -> argparse.ArgumentParser:
     return p
 
 
-# ── Command implementations ───────────────────────────────────────────────────
+#implementari pentru comenzi
 
+#comanda train
 def cmd_train(args) -> dict:
     from src.train import train
     from src.evaluate import plot_training_curves
@@ -64,7 +65,7 @@ def cmd_train(args) -> dict:
     )
     return history
 
-
+#comanda evaluate
 def cmd_evaluate(args) -> None:
     from src.train import load_best_model
     from src.dataset import get_loaders
@@ -77,7 +78,7 @@ def cmd_evaluate(args) -> None:
     )
     run_evaluation(model, test_loader, device, results_dir=args.results_dir)
 
-
+#comanda demo
 def cmd_demo(args) -> None:
     from src.train import load_best_model
     from src.dataset import get_loaders
@@ -94,7 +95,7 @@ def cmd_demo(args) -> None:
     )
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+#helper
 
 def _resolve_device(device_str: str) -> torch.device:
     if device_str == "auto":
@@ -102,13 +103,11 @@ def _resolve_device(device_str: str) -> torch.device:
     return torch.device(device_str)
 
 
-# ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
     parser = make_parser()
     args = parser.parse_args()
 
-    # Convert hyphenated arg names to underscore attributes
     args.ckpt_dir = args.ckpt_dir
 
     os.makedirs(args.data_root,   exist_ok=True)
@@ -126,21 +125,21 @@ def main():
 
     elif args.command == "all":
         print("=" * 60)
-        print("STEP 1 / 3 — Training")
+        print("STEP 1 / 3 - Training")
         print("=" * 60)
         cmd_train(args)
 
         print("\n" + "=" * 60)
-        print("STEP 2 / 3 — Evaluation")
+        print("STEP 2 / 3 - Evaluation")
         print("=" * 60)
         cmd_evaluate(args)
 
         print("\n" + "=" * 60)
-        print("STEP 3 / 3 — Demo")
+        print("STEP 3 / 3 - Demo")
         print("=" * 60)
         cmd_demo(args)
 
-        print("\n✓ All done! Outputs saved to:", args.results_dir)
+        print("\nAll done! Outputs saved to:", args.results_dir)
 
 
 if __name__ == "__main__":

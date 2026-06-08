@@ -1,12 +1,3 @@
-"""
-Training loop for the traffic sign recognition CNN.
-
-Features:
-  - Adam optimizer with cosine-annealing LR schedule
-  - Weighted cross-entropy to handle class imbalance
-  - Saves the best checkpoint (by validation accuracy)
-  - Returns history dict for plotting
-"""
 
 import os
 import time
@@ -19,7 +10,7 @@ from src.model import TrafficSignCNN, build_model, model_summary
 from src.dataset import get_loaders, NUM_CLASSES
 
 
-# ── Single epoch helpers ──────────────────────────────────────────────────────
+#ruleaza o epoca
 
 def _run_epoch(
     model: nn.Module,
@@ -29,7 +20,7 @@ def _run_epoch(
     device: torch.device,
     desc: str,
 ) -> tuple[float, float]:
-    """Run one train or eval epoch. Returns (avg_loss, accuracy)."""
+    #returneaza avg_loss si accuratete
     training = optimizer is not None
     model.train(training)
 
@@ -57,8 +48,7 @@ def _run_epoch(
     return total_loss / total, correct / total
 
 
-# ── Main training function ────────────────────────────────────────────────────
-
+#functia principala de antrenare
 def train(
     data_root: str = "./data",
     checkpoint_dir: str = "./checkpoints",
@@ -69,35 +59,31 @@ def train(
     num_workers: int = 4,
     device_str: str = "auto",
 ) -> dict:
-    """
-    Download GTSRB (if needed), train the CNN, and save the best checkpoint.
-
-    Returns a history dict with lists: train_loss, val_loss, train_acc, val_acc.
-    """
-    # ── Device ────────────────────────────────────────────────────────────────
+    #antreneaza modelul si salveaza cel mai bun checkpoint pe baza acuratetei pe setul de validare
+    
     if device_str == "auto":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     else:
         device = torch.device(device_str)
     print(f"Using device: {device}")
 
-    # ── Data ──────────────────────────────────────────────────────────────────
-    print("Loading dataset …")
+    #date
+    print("Loading dataset ...")
     train_loader, val_loader, _, class_weights = get_loaders(
         data_root, batch_size=batch_size, num_workers=num_workers
     )
-    print(f"  Train batches : {len(train_loader)}  |  Val batches: {len(val_loader)}")
+    print(f"  Train batches : {len(train_loader)}  /  Val batches: {len(val_loader)}")
 
-    # ── Model ─────────────────────────────────────────────────────────────────
+    #init model
     model = build_model(device)
     model_summary(model)
 
-    # ── Loss, optimizer, scheduler ────────────────────────────────────────────
+    #loss, optimizer, scheduler
     criterion = nn.CrossEntropyLoss(weight=class_weights.to(device))
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
-    # ── Training loop ─────────────────────────────────────────────────────────
+    # training lopp
     os.makedirs(checkpoint_dir, exist_ok=True)
     best_val_acc = 0.0
     best_path = os.path.join(checkpoint_dir, "best.pth")
@@ -108,7 +94,7 @@ def train(
         "lr": [],
     }
 
-    print(f"\nTraining for {epochs} epochs …\n")
+    print(f"\nTraining for {epochs} epochs ...\n")
     for epoch in range(1, epochs + 1):
         t0 = time.time()
 
@@ -149,7 +135,7 @@ def train(
                 },
                 best_path,
             )
-            print(f"  ✓ Saved new best checkpoint (val_acc={val_acc:.3f})")
+            print(f"Saved new best checkpoint (val_acc={val_acc:.3f})")
 
     print(f"\nTraining complete. Best val accuracy: {best_val_acc:.3f}")
     print(f"Checkpoint saved to: {best_path}")
@@ -157,7 +143,7 @@ def train(
 
 
 def load_best_model(checkpoint_dir: str, device: torch.device) -> TrafficSignCNN:
-    """Load the best checkpoint and return a ready-to-use model."""
+    #returneaza modelul cu cea mai buna performanta
     path = os.path.join(checkpoint_dir, "best.pth")
     if not os.path.exists(path):
         raise FileNotFoundError(f"No checkpoint found at {path}. Run training first.")

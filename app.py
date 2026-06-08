@@ -1,8 +1,3 @@
-"""
-Street Sign Recognition — Streamlit demo
-Uses the custom TrafficSignCNN (48×48 input, 5 classes).
-Place this file next to your model.pth, or upload the .pth via the sidebar.
-"""
 
 import streamlit as st
 import torch
@@ -12,22 +7,14 @@ from PIL import Image
 import cv2
 import time
 
-# ── Config ────────────────────────────────────────────────────────────────────
+# config
 CLASS_NAMES = ["Speed Limit 30", "Speed Limit 50", "Speed Limit 80", "Yield", "Stop"]
 NUM_CLASSES  = len(CLASS_NAMES)
-IMAGE_SIZE   = 48          # must match src/dataset.py → IMAGE_SIZE
-MODEL_PATH   = "model.pth" # default path; can also upload via sidebar
+IMAGE_SIZE   = 48
+MODEL_PATH   = "./checkpoints/best.pth"
 CONF_DEFAULT = 0.4
 
-CLASS_ICONS = {
-    "Speed Limit 30": "🔵",
-    "Speed Limit 50": "🔵",
-    "Speed Limit 80": "🔵",
-    "Yield":          "⚠️",
-    "Stop":           "🛑",
-}
-
-# ── CNN architecture (mirrors model.py exactly) ───────────────────────────────
+# arhitectura cnn pentru recunoasterea semnelor
 class ConvBlock(nn.Module):
     def __init__(self, in_ch, out_ch, pool=True):
         super().__init__()
@@ -66,30 +53,22 @@ class TrafficSignCNN(nn.Module):
         return self.head(self.neck(self.backbone(x)))
 
 
-def _build_model_from_state(state_dict):
-    """Instantiate TrafficSignCNN and load weights."""
+@st.cache_resource
+def load_model():
+    state = torch.load(MODEL_PATH, map_location="cpu")
+    if "model_state" in state:
+        state = state["model_state"]
+    elif "model_state_dict" in state:
+        state = state["model_state_dict"]
+    elif "state_dict" in state:
+        state = state["state_dict"]
     model = TrafficSignCNN()
-    # Strip checkpoint wrapper — your save() uses "model_state"
-    if "model_state" in state_dict:
-        state_dict = state_dict["model_state"]
-    elif "model_state_dict" in state_dict:
-        state_dict = state_dict["model_state_dict"]
-    elif "state_dict" in state_dict:
-        state_dict = state_dict["state_dict"]
-    model.load_state_dict(state_dict)
+    model.load_state_dict(state)
     model.eval()
     return model
 
 
-@st.cache_resource
-def load_model_from_path(path):
-    state = torch.load(path, map_location="cpu")
-    return _build_model_from_state(state)
-
-
-# ── Pre-processing ─────────────────────────────────────────────────────────────
-# Matches the normalisation used during training (ImageNet stats are fine for
-# transfer-style training; adjust if you used custom stats).
+# preprocesare
 transform = transforms.Compose([
     transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
     transforms.ToTensor(),
@@ -99,7 +78,6 @@ transform = transforms.Compose([
 
 
 def predict(model, frame_bgr):
-    """Run one forward pass on a BGR OpenCV frame."""
     rgb    = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
     tensor = transform(Image.fromarray(rgb)).unsqueeze(0)
     with torch.no_grad():
@@ -108,8 +86,8 @@ def predict(model, frame_bgr):
     return CLASS_NAMES[top_idx.item()], top_prob.item(), probs.numpy()
 
 
-# ── Page config & CSS ──────────────────────────────────────────────────────────
-st.set_page_config(page_title="Street Sign Detector", page_icon="🚦", layout="wide")
+# config pagina si css
+st.set_page_config(page_title="Street Sign Detector", layout="wide")
 
 st.markdown("""
 <style>
@@ -138,47 +116,27 @@ h1, h2, h3 { font-family: 'Syne', sans-serif !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Sidebar ────────────────────────────────────────────────────────────────────
+# incarcare model
+try:
+    model = load_model()
+except Exception as e:
+    st.error(f"❌Could not load model from `{MODEL_PATH}`:\n\n`{e}`")
+    st.stop()
+
+# sidebar
 with st.sidebar:
-    st.markdown("## 🚦 Sign Detector")
+    st.markdown("## Traffic Sign Detector")
     st.markdown("---")
     st.markdown("**Classes**")
     for name in CLASS_NAMES:
-        st.markdown(f"{CLASS_ICONS.get(name, '🔹')} {name}")
+        st.markdown(f"{name}")
     st.markdown("---")
     run_camera     = st.toggle("Enable Camera", value=False)
     conf_threshold = st.slider("Confidence threshold", 0.1, 0.99, CONF_DEFAULT, 0.05)
     st.markdown("---")
-    st.markdown("**Model**")
-    st.caption(f"Input size: {IMAGE_SIZE}×{IMAGE_SIZE} · 5 classes")
-    uploaded = st.file_uploader("Upload .pth / .pt", type=["pth", "pt"])
-    st.markdown("---")
-    st.caption("TrafficSignCNN — Conv(3→32→64→128→128) + GAP + FC")
+    st.caption("TrafficSignCNN · model loaded")
 
-# ── Load model ─────────────────────────────────────────────────────────────────
-model = None
-if uploaded:
-    import tempfile, os
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pth") as tmp:
-        tmp.write(uploaded.read())
-        tmp_path = tmp.name
-    try:
-        state = torch.load(tmp_path, map_location="cpu")
-        model = _build_model_from_state(state)
-        st.sidebar.success("✅ Model loaded!")
-    except Exception as e:
-        st.sidebar.error(f"Load failed:\n{e}")
-    finally:
-        os.unlink(tmp_path)
-else:
-    try:
-        model = load_model_from_path(MODEL_PATH)
-    except FileNotFoundError:
-        pass  # user hasn't placed model.pth yet; upload fallback shown below
-    except Exception as e:
-        st.sidebar.warning(f"Could not load {MODEL_PATH}:\n{e}")
-
-# ── Main layout ────────────────────────────────────────────────────────────────
+# pagina principala
 st.markdown("# Street Sign Recognition")
 st.markdown("Point your camera at a **speed limit 30 / 50 / 80**, **yield**, or **stop** sign.")
 
@@ -190,24 +148,20 @@ with col_pred:
     pred_ph = st.empty()
     bars_ph = st.empty()
 
-# ── Helper ─────────────────────────────────────────────────────────────────────
+# helper pentru bara de procent
 def bar_html(name, prob, is_top):
     pct   = int(prob * 100)
     color = "#e8c547" if is_top else "#3a3a45"
     return (
         f'<div class="bar-row">'
-        f'  <div class="bar-label">{CLASS_ICONS.get(name,"")} {name} — {pct}%</div>'
+        f'  <div class="bar-label">{name} - {pct}%</div>'
         f'  <div class="bar-outer"><div class="bar-inner" style="width:{pct}%;background:{color};"></div></div>'
         f'</div>'
     )
 
-# ── Camera loop ────────────────────────────────────────────────────────────────
+# logica camerei
 if run_camera:
-    if model is None:
-        st.error("⚠️ No model loaded — upload your `.pth` file in the sidebar.")
-        st.stop()
-
-    status_ph.markdown('<span class="pill pill-live">● LIVE</span>', unsafe_allow_html=True)
+    status_ph.markdown('<span class="pill pill-live">LIVE</span>', unsafe_allow_html=True)
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         st.error("Could not open webcam. Make sure it is connected and not used by another app.")
@@ -226,10 +180,9 @@ if run_camera:
             label, conf, probs = predict(model, frame)
 
             if conf >= conf_threshold:
-                icon = CLASS_ICONS.get(label, "🔹")
                 pred_ph.markdown(
                     f'<div class="pred-card">'
-                    f'  <p class="pred-label">{icon} {label}</p>'
+                    f'  <p class="pred-label">{label}</p>'
                     f'  <p class="pred-conf">Confidence: {conf*100:.1f}%</p>'
                     f'</div>',
                     unsafe_allow_html=True,
@@ -237,7 +190,7 @@ if run_camera:
             else:
                 pred_ph.markdown(
                     '<div class="pred-card">'
-                    '  <p class="pred-label">🤷 Uncertain</p>'
+                    '  <p class="pred-label">Uncertain</p>'
                     '  <p class="pred-conf">No sign detected with sufficient confidence</p>'
                     '</div>',
                     unsafe_allow_html=True,
@@ -254,7 +207,7 @@ if run_camera:
         cap.release()
 
 else:
-    status_ph.markdown('<span class="pill pill-off">● Camera off</span>', unsafe_allow_html=True)
+    status_ph.markdown('<span class="pill pill-off">Camera off</span>', unsafe_allow_html=True)
     camera_ph.markdown(
         '<div style="background:#17171a;border:1px dashed #333;border-radius:12px;'
         'height:320px;display:flex;align-items:center;justify-content:center;'
@@ -264,7 +217,7 @@ else:
     pred_ph.markdown(
         '<div class="pred-card">'
         '  <p class="pred-label" style="color:#444;">— —</p>'
-        '  <p class="pred-conf">Waiting for camera…</p>'
+        '  <p class="pred-conf">Waiting for camera...</p>'
         '</div>',
         unsafe_allow_html=True,
     )
